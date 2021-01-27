@@ -55,8 +55,10 @@
   - name: enable apache24 on reboots
     shell: sysrc apache24_enable=YES
 
-  - name: start apache24
-    shell: service apache24 start
+  - name: start service apache24
+    service:
+      name: apache24
+      state: started
 
   - name: start initial build with pkg for 122Ramd64
     shell: poudriere testport -j 122Ramd64 -o net/nc
