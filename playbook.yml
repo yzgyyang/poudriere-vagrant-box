@@ -1,0 +1,65 @@
+---
+- hosts: all
+  become_user: root
+  become: true
+  tasks:
+
+  - name: upgrade all packages
+    community.general.pkgng:
+      name: "*"
+      state: latest
+
+  - name: install packages
+    community.general.pkgng:
+      name:
+        - poudriere
+        - apache24
+      state: present
+
+  - name: set up ZFS
+    shell: zpool create tank ada1
+
+  - name: configure FREEBSD_HOST
+    lineinfile:
+      state: present
+      path: /usr/local/etc/poudriere.conf
+      regexp: "^FREEBSD_HOST="
+      line: "FREEBSD_HOST=https://download.FreeBSD.org"
+
+  - name: configure ZPOOL
+    lineinfile:
+      state: present
+      path: /usr/local/etc/poudriere.conf
+      regexp: "^#ZPOOL="
+      line: "ZPOOL=tank"
+
+  - name: create poudriere ports tree
+    shell: poudriere ports -c
+
+  - name: create distfile directory
+    file:
+      path: /usr/ports/distfiles
+      state: directory
+
+  - name: create poudriere jail 122Ramd64
+    shell: poudriere jail -c -j 122Ramd64 -v 12.2-RELEASE -a amd64
+
+  - name: create poudriere jail 114Ri386
+    shell: poudriere jail -c -j 114Ri386 -v 11.4-RELEASE -a i386
+
+  - name: copy httpd.conf
+    copy:
+      src: httpd.conf
+      dest: /usr/local/etc/apache24/httpd.conf
+
+  - name: enable apache24 on reboots
+    shell: sysrc apache24_enable=YES
+
+  - name: start apache24
+    shell: service apache24 start
+
+  - name: start initial build with pkg for 122Ramd64
+    shell: poudriere testport -j 122Ramd64 -o net/nc
+
+  - name: start initial build with pkg for 114Ri386
+    shell: poudriere testport -j 114Ri386 -o net/nc
